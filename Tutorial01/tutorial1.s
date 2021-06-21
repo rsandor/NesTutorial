@@ -93,7 +93,10 @@ forever:
 .endproc
 
 ;
-; Loads the starfield nametbale into PPU video memory.
+; Loads the starfield nametable and attribute table into the PPU's video memory.
+; This is a very specific routine, but it can pretty easily be abstracted to
+; any nametable you could want. For the sake of this tutorial it will suffice,
+; but I'll cover this topic more in the future.
 ;
 .proc LoadStarfield
   ; Load the starfield address into the zero page
