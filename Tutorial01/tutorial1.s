@@ -5,9 +5,9 @@
   .byte $01, $00            ; mapper 0, vertical mirroring
 
 .segment "VECTORS"
-  .addr NonMaskingInterrupt
-  .addr PowerOnReset
-  .addr 0
+  .addr NonMaskingInterrupt ; The non-masking interrupt, called every frame
+  .addr PowerOnReset        ; What procedure to call on power-on and reset
+  .addr 0                   ; IRQ (Unused)
 
 .segment "STARTUP"  ; This segment is required by the linker, but is unused.
 
@@ -23,7 +23,7 @@
 ; mapper setup, depending on the game, but it's not required to do so.
 ;
 .proc PowerOnReset
-  sei               ; Disable IRQs (unused by NES)
+  sei               ; Disable IRQ
   cld               ; Disable Decimal Mode (unused by NES)
   ldx #%01000000    ; Disable APU's frame IRQ
   stx $4017
@@ -33,10 +33,11 @@
   stx $2000         ; Disable the NMI
   stx $2001         ; Disable Rendering
   stx $4010         ; Disable "Delta Modulation Channel" (DMC) intterupts (IRQ)
-@vblankWait1:
+  bit $2002         ; Reset the VBLANK flag
+@vblankWait1:       ; Wait for a VBLANK
   bit $2002
   bpl @vblankWait1
-@clearMemory:
+@clearMemory:       ; Zero-out all RAM
   lda #$00
   sta $0000, x
   sta $0100, x
@@ -48,7 +49,7 @@
   sta $0700, x
   inx
   bne @clearMemory
-@vblankWait2:
+@vblankWait2:       ; Wait for one more VBLANK
   bit $2002
   bpl @vblankWait2
 .endproc
@@ -77,17 +78,19 @@ forever:
 ; full palettes can be swapped in and out during gameplay.
 ;
 .proc LoadPalettes
+  ; Set the starting PPU VRAM address to the palette section ($3F00)
   bit $2002
   lda #$3f
   sta $2006
   lda #$00
   sta $2006
-  ldy #0
+  ; Load each of the 8 palettes into video memory
+  ldx #0
 @loop:
-  lda palettes, y
+  lda palettes, x
   sta $2007
-  iny
-  cpy #$20
+  inx
+  cpx #$20
   bne @loop
   rts
 .endproc
@@ -104,15 +107,13 @@ forever:
   sta $00
   lda #.HIBYTE(starfield_nametable)
   sta $01
-
   ; Set the starting PPU VRAM address to the top left tile of the nametable
   bit $2002
   lda #$20
   sta $2006
   lda #$00
   sta $2006
-
-  ; Transfer data from PRG-ROM into the PPU Vram by making successive writes.
+  ; Transfer data from PRG-ROM into the PPU VRAM by making successive writes.
   ; Note: this will transfer the 960 bytes for the nametable along with the
   ; additional 64 bytes of attribute table data at the end of the table.
   ldx #0
@@ -146,7 +147,6 @@ forever:
 .proc NonMaskingInterrupt
   ; Perform the "twinkling star" animation effect
   jsr AnimateStarTwinkle
-
   ; Reset the VRAM address
   ; Note: this is generally done as a safety in case the PPU address was set to
   ; a different value in any of the routines above. If the address is not reset

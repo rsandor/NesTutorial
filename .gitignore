@@ -1,4 +1,4 @@
 .DS_Store
-.nes
-.o
+*.nes
+*.o
 Tutorial01/tutorial1
